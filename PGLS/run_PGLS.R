@@ -51,7 +51,7 @@ handle_outliers <- function(y) {
   return(y)
 }
 
-# min-_max normalizing data
+# min-max normalizing data
 normalize<-function(y) {
     x<-y[!is.na(y)]
     x<-(x - min(x)) / (max(x) - min(x))
