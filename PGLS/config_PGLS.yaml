@@ -77,15 +77,8 @@ paths:
   count_tables: "PWM_results_promoter/motif_counts/{motif}_counts.out"
   totalcount_tables: "PWM_results_promoter/motif_totalcounts/{motif}_totalcounts.out"
 
-  PGLS_42_counts: "PGLS_results/counts/42spp_lambda/{motif}.csv"
-  PGLS_42_counts_normalized: "PGLS_results/counts/42spp_lambda_normalized/{motif}.csv"
   PGLS_42_counts_MAD: "PGLS_results/counts/42spp_lambda_MAD/{motif}.csv"
-  PGLS_42_scores: "PGLS_results/scores/42spp_lambda/{motif}.csv"
-  PGLS_Halictids_counts: "PGLS_results/counts/Halictidspp_lambda/{motif}.csv"
-  PGLS_Halictids_scores: "PGLS_results/scores/Halictidspp_lambda/{motif}.csv"
-  PGLS_Apids_counts: "PGLS_results/counts/Apidspp_lambda/{motif}.csv"
-  PGLS_Apids_scores: "PGLS_results/scores/Apidspp_lambda/{motif}.csv"
-
+ 
 containers:
   orthofinder: "docker://davidemms/orthofinder:3.0.1b1"
   agat: "docker://quay.io/biocontainers/agat:1.4.1--pl5321hdfd78af_0"
