@@ -1,4 +1,4 @@
-configfile: "config_updated.yaml"
+configfile: "config.yaml"
 
 paths = config['paths']
 
