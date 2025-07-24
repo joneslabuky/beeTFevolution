@@ -1,0 +1,507 @@
+configfile: "config_updated.yaml"
+
+paths = config['paths']
+
+workdir: paths['working_dir']
+
+# to run a subset, use
+# samples = config['species'][0:3]
+# samples = config['species'][0]
+samples = config['species']
+
+# motifs = ("MA0010.2")
+motifs = glob_wildcards(paths['motifs']).motif
+#print(f"Found {len(samples)} samples and {len(motifs)} motifs")
+
+localrules:
+        all,
+
+rule all:
+        input:
+#                expand(paths['pep_beds'],sample=samples),
+#                expand(paths['longest_peps'], sample=samples),
+#                 expand(paths['bg_comp'], sample=samples),
+#                 expand(paths['genome_bwt_indices'], sample=samples),
+#                 expand(paths['ill_motifs'], sample=samples[2:3], motif=motifs[:2]),
+#                 expand(paths['mapped_tags'], sample=samples[:3], motif=motifs[:3]),
+#                  expand(paths['promoter_tags'], sample=samples[:5], motif=motifs[:6]),
+#                  expand(paths['species_tables'], sample=samples)
+#                  expand(paths['count_tables'], motif=motifs),
+                expand(paths['PGLS_results'],motif=motifs[1])
+
+rule longest_isoform:
+        input:
+                paths['gffs']
+        output:
+                paths['longest_isoforms']                
+        container:
+                config["containers"]["agat"]
+        params:
+                prefix = "longest_isoforms/"+"{sample}_longiso.gff3"
+        threads: 4
+        resources:
+                mem=16000,
+                time=60,
+        shell:
+                "agat_sp_keep_longest_isoform.pl -gff {input} -o {params.prefix}"
+
+rule create_pep_files:
+        input:
+                paths['longest_isoforms']
+        output:
+                paths['longest_peps']
+        container:
+                config["containers"]["agat"]
+        params:
+                genome = "genomes/"+"{sample}_genome.fa",
+                prefix = "longest_peps/"+"{sample}_longpeps.fa"
+        threads: 4
+        resources:
+                mem=16000,
+                time=60,
+        shell:
+                "agat_sp_extract_sequences.pl -gff {input} -f {params.genome} -t cds -p --roo --clean_final_stop -o {params.prefix}"
+
+# don't need to re-run orthofinder, using results file below
+#rule orthofinder:
+#        input:
+#                expand(paths['longest_peps'], sample=samples)
+#        output:
+#                tree="longest_peps/OrthoFinder/*/Species_Tree/SpeciesTree_rooted.txt"
+#        container:
+#                config["containers"]["orthofinder"]
+#        threads: 64
+#        resources:
+#                mem=256000,
+#                time=5760,
+#                ntasks=64
+#        shell:
+#                "orthofinder -f longest_peps -t {threads}"
+
+rule create_pep_beds:
+        input:
+                isoforms=paths['longest_isoforms'],
+                species_peptide_pairs=paths['species_peptide_pairs']
+        output:
+                paths['pep_beds']
+        threads: 1
+        resources:
+                mem=2000,
+                time=60,
+        run:
+                import pandas as pd
+                species_peptides = pd.read_csv(input.species_peptide_pairs, sep='\t', names=['species', 'peptide'])
+                species_peptides = species_peptides[species_peptides['species'] == wildcards.sample]
+                isoforms = pd.read_csv(input.isoforms, comment='#', sep='\t', header=None)
+                isoforms = isoforms[isoforms[2] == 'mRNA']
+                isoforms['peptide'] = isoforms[8].str.extract(r'ID=([^;]+)')[0]
+                isoforms['dot'] = '.'
+                isoforms = isoforms[isoforms['peptide'].isin(species_peptides['peptide']) ]
+                isoforms[[0, 3, 4, 'peptide', 'dot', 6]].to_csv(output[0], sep='\t', header=None, index=None)
+
+rule get_chrom_lengths:
+        input:
+                paths['genomes']
+        output:
+                paths['chrom_lengths']
+        container:
+                config["containers"]["samtools"]
+        params:
+                index_file="genomes/"+"{sample}_genome.fa.fai"
+        threads: 1
+        resources:
+                mem=2000,
+                time=60,
+        shell:
+                "samtools faidx {input} \n"
+                "cut -f1,2 {params.index_file} > {output}"
+
+rule find_promoters:
+        input:
+                peps=paths['pep_beds'],
+                chrom_lengths=paths['chrom_lengths']
+        output:
+                paths['promoter_beds']
+        container:
+                config["containers"]["bedtools"]
+        threads: 1
+        resources:
+                mem=2000,
+                time=60,
+        params:
+                TSS_awk_command=(
+                        r'BEGIN{OFS="\t"} {if ($6 == "+") $3 = $2 + 1; else $2 = $3 - 1; print}'
+                        )
+        shell:
+                "awk '{params.TSS_awk_command}' {input.peps} | bedtools slop -i - -g {input.chrom_lengths} -l 5000 -r 2000 -s  > {output}"
+
+rule create_pep_fastas:
+        input:
+                bed=paths['pep_beds'],
+                genome=paths['genomes']
+        output:
+                pep_fastas=paths['pep_fastas']
+        threads: 1
+        resources:
+                mem=2000,
+                time=60,
+        run:
+                import pybedtools
+                from Bio import SeqIO
+                from Bio.SeqRecord import SeqRecord
+                from Bio.Seq import Seq
+
+                bed = pybedtools.BedTool(input.bed)
+                genome = SeqIO.to_dict(SeqIO.parse(input.genome, "fasta"))
+
+                # List to hold SeqRecord objects
+                records = []
+
+                # Iterate over each region in the BED file
+                for region in bed:
+                    chrom = region.chrom
+                    start = int(region.start)
+                    end = int(region.end)
+                    name = region.name
+
+                # Extract the sequence from the genome
+                    seq = genome[chrom].seq[start:end]
+
+                # Create a SeqRecord object
+                    record = SeqRecord(Seq(str(seq)), id=name, description=chrom+":"+str(region.start)+"-"+str(region.end))
+                    records.append(record)
+
+                # Write the sequences to the output multifasta file
+                SeqIO.write(records, output.pep_fastas, "fasta")
+
+rule create_promoter_fastas:
+        input:
+                bed=paths['promoter_beds'],
+                genome=paths['genomes']
+        output:
+                promoter_fastas=paths['promoter_fastas']
+        threads: 1
+        resources:
+                mem=2000,
+                time=60,
+        run:
+                import pybedtools
+                from Bio import SeqIO
+                from Bio.SeqRecord import SeqRecord
+                from Bio.Seq import Seq
+
+                bed = pybedtools.BedTool(input.bed)
+                genome = SeqIO.to_dict(SeqIO.parse(input.genome, "fasta"))
+
+                # List to hold SeqRecord objects
+                records = []
+
+                # Iterate over each region in the BED file
+                for region in bed:
+                    chrom = region.chrom
+                    start = int(region.start)
+                    end = int(region.end)
+                    name = region.name
+
+                # Extract the sequence from the genome
+                    seq = genome[chrom].seq[start:end]
+
+                # Create a SeqRecord object
+                    record = SeqRecord(Seq(str(seq)), id=name, description=chrom+":"+str(region.start)+"-"+str(region.end))
+                    records.append(record)
+
+                # Write the sequences to the output multifasta file
+                SeqIO.write(records, output.promoter_fastas, "fasta")
+            
+rule background_composition:
+        input:
+                genome=paths['genomes']
+        output:
+                parsed=paths['bg_comp']
+        container:
+               config["containers"]["pwmscan"]
+        threads: 2
+        resources:
+                mem=2000,
+                time=30,
+        shell:
+                "seq_extract_bcomp -i 0 -c {input.genome} | "
+                'awk -F, \'{{print "A\\t" $1 "\\nC\\t" $2 "\\nG\\t" $3 "\\nT\\t" $4}}\' > {output.parsed}'
+
+rule build_genome_indices:
+        input:
+                paths['genomes']
+        output:
+                paths['genome_bwt_indices']
+        params:
+                prefix="genomes/{sample}_genome.fa"
+        container:
+                config["containers"]["bowtie"]
+        threads: 4
+        resources:
+                mem=16000,
+                time=120,
+        shell:
+                "bowtie-build -f {input} {params.prefix}"
+
+rule build_pep_indices:
+        input:
+                paths['pep_fastas']
+        output:
+                paths['pep_bwt_indices']
+        params:
+                prefix="pep_genomes/{sample}_peps.fa"
+        container:
+                config["containers"]["bowtie"]
+        threads: 4
+        resources:
+                mem=16000,
+                time=120,
+        shell:
+                "bowtie-build -f {input} {params.prefix}"
+
+rule build_promoter_indices:
+        input:
+                paths['promoter_fastas']
+        output:
+                paths['promoter_bwt_indices']
+        params:
+                prefix="promoter_genomes/{sample}_promoters.fa"
+        container:
+                config["containers"]["bowtie"]
+        threads: 4
+        resources:
+                mem=16000,
+                time=120,
+        shell:
+                "bowtie-build -f {input} {params.prefix}"
+
+rule pwm_setup:
+        input:
+                motifs=paths['motifs'],
+                bg=paths['bg_comp']
+        output:
+                ill=paths['ill_motifs'],
+                score=paths['score'],
+                mba=paths['mba'],
+                tags=paths['tag_list']
+        container:
+               config["containers"]["pwmscan"]
+        threads: 1
+        resources:
+                mem=2000,
+                time=30,
+        shell:
+                "pwm_convert {input.motifs} "
+                        "-f=jaspar "
+                        "-b={input.bg} "
+                        "> {output.ill} \n"
+                "BG_VALUES=$(awk '{{print $2}}' {input.bg} | tr '\\n' ',' | sed 's/,$//') \n"
+                "matrix_prob -e 0.00001 "
+                        "--bg $BG_VALUES {output.ill} "
+                        "> {output.score} \n"
+                "SCORE=$(grep 'SCORE :' {output.score} | awk '{{print $3}}') \n"
+                "mba -c $SCORE {output.ill} > {output.mba} \n"
+                'awk \'{{print ">"$2"\\n"$1}}\' {output.mba} > {output.tags}\n'
+
+rule genome_map_tags:
+        input:
+                tags=paths['tag_list'],
+                indices=paths['genome_bwt_indices']
+        output:
+                mapped_tags=paths['genome_tags']
+        container:
+                config["containers"]["bowtie"]
+        params:
+                prefix = "genomes/"+"{sample}.fa"
+
+        threads: 1
+        resources:
+                mem=16000,
+                time=120,
+        shell:
+                "bowtie -n0 -a {params.prefix} "
+                        "-f {input.tags} "
+                        "> {output} \n"
+
+rule pep_map_tags:
+        input:
+                tags=paths['tag_list'],
+                indices=paths['pep_bwt_indices']
+        output:
+                pep_tags=paths['pep_tags']
+        container:
+                config["containers"]["bowtie"]
+        params:
+                prefix = "pep_genomes/"+"{sample}_peps.fa"
+
+        threads: 1
+        resources:
+                mem=16000,
+                time=120,
+        shell:
+                "bowtie -n0 -a {params.prefix} "
+                        "-f {input.tags} "
+                        "> {output} \n"
+
+rule promoter_map_tags:
+        input:
+                tags=paths['tag_list'],
+                indices=paths['promoter_bwt_indices']
+        output:
+                promoter_tags=paths['promoter_tags']
+        container:
+                config["containers"]["bowtie"]
+        params:
+                prefix = "promoter_genomes/"+"{sample}_promoters.fa"
+ 
+        threads: 1
+        resources:
+                mem=16000,
+                time=120,
+        shell:
+                "bowtie -n0 -a {params.prefix} "
+                        "-f {input.tags} "
+                        "> {output} \n"
+
+rule genome_motif_tables:
+        input:
+                genome_tags=expand(paths['genome_tags'],motif=motifs,allow_missing=True)
+        output:
+                genome_species_table=paths['genome_species_tables']
+        threads: 1
+        resources:
+                mem=2000,
+                time=60,
+
+        run:
+                from pathlib import Path
+                import pandas as pd
+                import sys
+
+                out = []
+                for motif,file in zip(motifs, input.genome_tags):
+                    data = pd.read_csv(
+                        file, sep=r'\s+', header=None, # read in a space separated file without a header
+                        usecols=[0, 2], #only take the score and scaffold
+                        names=['score', 'scaffold']) # name them
+                        #data has a single file's data that will be added to output
+                    out.append(
+                        #group the data by scaffold name, select score, aggregate the mean and count of score, reset index to $
+                        data.groupby('scaffold')['score'].agg(['mean', 'count']).reset_index().assign(motif=motif)
+                    )
+                # combine all the data tables into one and save as a tab separated file
+                pd.concat(out).to_csv(output.species_table, sep='\t', index=False)
+
+rule species_motif_tables:
+        input:
+                promoter_tags=expand(paths['promoter_tags'],motif=motifs,allow_missing=True)
+        output:
+                species_table=paths['species_tables']
+
+        threads: 1
+        resources:
+                mem=2000,
+                time=60,
+
+        run:
+                from pathlib import Path
+                import pandas as pd
+                import sys
+
+                out = []
+                for motif,file in zip(motifs, input.promoter_tags):
+                    data = pd.read_csv(
+                        file, sep=r'\s+', header=None, # read in a space separated file without a header
+                        usecols=[0, 2], #only take the score and peptide
+                        names=['score', 'peptide']) # name them
+                        #data has a single file's data that will be added to output
+                    out.append(
+                        #group the data by peptide name, select score, aggregate the mean and count of score, reset index to make the peptide a column, then save the filename for later
+                        data.groupby('peptide')['score'].agg(['mean', 'count']).reset_index().assign(motif=motif)
+                    )
+                # combine all the data tables into one and save as a tab separated file
+                pd.concat(out).to_csv(output.species_table, sep='\t', index=False)
+
+rule aggregate_tables:
+        input:
+                species_tables=expand(paths['species_tables'],sample=samples,allow_missing=True),
+                orthogroups='/pscratch/bmjo263_uksr/SAV_TFBS/Results_Nov01/Orthogroups/Orthogroups.tsv'
+        output:
+                score_tables=expand(paths['score_tables'], motif=motifs),
+                count_tables=expand(paths['count_tables'], motif=motifs),
+                totalcount_tables=expand(paths['totalcount_tables'], motif=motifs)
+        threads: 1
+        resources:
+                mem=8000,
+                time=120,
+        run:
+                from pathlib import Path # pathlib is better than os and simplifies a lot of file name manipulations
+                import sys
+                import pandas as pd # pandas for all things tabular
+                from collections import defaultdict
+    
+                def build_orthogroup_dict(file, species):
+                    result = defaultdict(lambda: 'NA')
+                    header = file.readline()
+                    spp = header.strip().split('\t')
+                    index = -1
+                    for i, sp in enumerate(spp):
+                        if sp.startswith(species):
+                            index = i
+                            break
+                    else:
+                        raise ValueError(f"Species {species} not found in header")
+                    for line in file:
+                        columns = line.strip('\n').split('\t')
+                        orthogroup, peptides = columns[0], columns[index]
+                        peptides = peptides.split(',')
+                        result.update({peptide.strip(): orthogroup for peptide in peptides})
+                    return result
+
+                scores = defaultdict(list)
+                counts = defaultdict(list)
+                totalcounts = defaultdict(list)
+
+                for sample, file in zip(samples, input.species_tables):
+                    print(sample)
+                    db = build_orthogroup_dict(open(input.orthogroups), sample)
+                    # remove any empty OGs
+                    del db['']
+                    data = pd.read_csv(file, sep=r'\s+')
+
+                    data['OG'] = data.peptide.map(db)
+                    data['total_score'] = data['mean'] * data['count']
+                    for motif in motifs:
+                        sub_data = data[data.motif == motif]
+                        summed_data = sub_data.groupby('OG').agg(total_score=('total_score', 'sum'),
+                                                 total_count=('count', 'sum'),
+                                                 mean_count=('count', 'mean'))
+                        summed_data['mean_score'] = summed_data['total_score'] / summed_data['total_count']
+                        # make missing OGs equal to 0  (but present in db)
+                        summed_data = pd.concat((summed_data, pd.DataFrame(
+                                  index=sorted(set(db.values()).difference(summed_data.index)),
+                                  columns=summed_data.columns, data=0))).sort_index()
+                        scores[motif].append(summed_data['mean_score'].rename(sample))
+                        counts[motif].append(summed_data['mean_count'].rename(sample))
+                        totalcounts[motif].append(summed_data['total_count'].rename(sample))
+
+                for motif, score, count, totalcount in zip(motifs, output.score_tables, output.count_tables, output.totalcount_tables):
+                    pd.concat(scores[motif], axis=1, ignore_index=False).reset_index().to_csv(score, sep='\t', index=False, na_rep='NA')
+                    pd.concat(counts[motif], axis=1, ignore_index=False).reset_index().to_csv(count, sep='\t', index=False, na_rep='NA')
+                    pd.concat(totalcounts[motif], axis=1, ignore_index=False).reset_index().to_csv(totalcount, sep='\t', index=False, na_rep='NA')
+
+rule PGLS:
+        input:
+                count_tables=paths['count_tables']
+        output:
+                count_PGLS=paths['PGLS_results']
+        threads: 1
+        conda:
+                "PGLS.yaml"
+        resources:
+                mem=8000,
+                time=120,
+        shell:
+                "Rscript count_PGLS.R --input {input.count_tables} --output {output.count_PGLS}"
+
