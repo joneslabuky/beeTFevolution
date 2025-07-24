@@ -32,4 +32,4 @@ rule PGLS:
                 mem=8000,
                 time=120,
         script:
-               "./success_fail_test_bounds_PGLS.R"
+               "./run_PGLS.R"
