@@ -1,0 +1,35 @@
+configfile: "config_PGLS.yaml"
+
+paths = config['paths']
+
+workdir: paths['working_dir']
+
+# to run a subset, use
+#samples = config['species'][0:4]
+# samples = config['species'][0]
+samples = config['species']
+
+#motifs = ("MA0010.2")
+motifs = glob_wildcards(paths['motifs']).motif
+#print(f"Found {len(samples)} samples and {len(motifs)} motifs")
+
+localrules:
+        all,
+
+rule all:
+        input:
+                expand(paths['PGLS_42_counts_MAD'],motif=motifs)
+
+rule PGLS:
+        input:
+                paths['count_tables']
+        output:
+                paths['PGLS_42_counts_MAD']
+        threads: 1
+        conda:
+                "PGLS.yaml"
+        resources:
+                mem=8000,
+                time=120,
+        script:
+               "./success_fail_test_bounds_PGLS.R"
