@@ -22,4 +22,4 @@ The results of the phylostratigraphic analysis for each species are in the `phyl
 19 is Apoidea  
 21 is Family (i.e, Andrenidae, Apidae, Colletidae, Halictidae, Megachilidae, Mellitidae)
 
-[SCRIPT!] Was used to assign each OG to one of 4 age range classes: Bilaterian, younger than Bilaterian but older than Hymenoptera, Hymenoptera to Apoidea, or younger than Apoidea (i.e., family, genus, or species specific). To assign age classifications we required at least 5 species be assigned an age by Phylostratigraphy and that the majority of genes with an assigned age for a given OG be assigned the same age. The results are in `OG_ages.txt`.
+The `synthesize_by_og` assigns each OG to one of 4 age range classes: Bilaterian, younger than Bilaterian but older than Hymenoptera, Hymenoptera to Apoidea, or younger than Apoidea (i.e., family, genus, or species specific). To assign age classifications we required at least 5 species be assigned an age by Phylostratigraphy and that the majority of genes with an assigned age for a given OG be assigned the same age. The results are in `OG_ages.txt`.
