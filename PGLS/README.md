@@ -1,5 +1,4 @@
 # Snakemake workflow for PGLS: testing TF motif associations with sociality
-
 Snakemake is used to manage this workflow and the files in this directory control the pipeline to run phylogenetic least squares (PGLS) models to test associations between TF motif presence in promoter regions and social behavior across bee species. 
 
 This pipeline uses motif count tables from upstream workflows, species tree from OrthoFinder, and a metadata table defining sociality for each species. 
