@@ -85,18 +85,3 @@ with open("OG_ages.txt", 'w') as outfile:
 print(f"{len(major_goods)} orthogroups have a majority phylostrat level assigned.")
 
 
-#reader = open("/Genomics/kocherlab/berubin/ants/bees/bee_data/renamed_cds_seqs/DNOV_map.txt", 'rU')
-#dnov_translate = {}
-#for line in reader:
-#    cur_line = line.split()
-#    dnov_translate[cur_line[1]] = cur_line[0]
-#
-#ortho_dic = read_orthos("/Genomics/kocherlab/berubin/comparative/halictids/orthology/orthofinder/protein_seqs/OrthoFinder/Results_Jan29_4/Orthogroups/Orthogroups.txt")
-#species_gene_dics = {}
-#major_goods = []
-#outfile = open("OG_ages.txt", 'w')
-#outfile.write("OG\tPS\tHighest_expression\tall_PSs\tgenes\n")
-#for species in ["AAUR", "APUR", "AVIR", "HLIG", "HQUA", "HRUB", "LLEU", "LMAR", "LFIG", "LZEP", "LVIE", "LPAU", "LOEN", "LMAL", "LCAL", "LALB", "NMEL", "MGEN", "DNOV"]:
-#    cur_dic = read_strats("%s_animals_final_ps_map.csv" % species)
-#    species_gene_dics[species] = cur_dic
-
