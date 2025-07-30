@@ -1,4 +1,4 @@
-# Snakemake workflow for preprocessing, running OrthoFinder, and running PWMScan
+# Snakemake workflow for running OrthoFinder and PWMScan
 
 Snakemake is used to manage this workflow and the two files in this directory control the pipeline to prepare orthogroup and transcription factor data across multiple species for downstream comparative analyses.
 
