@@ -2,8 +2,8 @@
 
 This repository contains scripts and results files for "Evolutionary transitions in social behavior are associated with convergent and partially reversible expansions of transcription factor binding sties by Ploessl and Jones, published in XXXX. DOI:XXXX.
 
-Preprocessing: 
+Preprocessing: pipeline for preparing orthgroup and TF motif data for downstream comparative analyses. 
 
-PGLS: 
+PGLS: pipeline and codes for running phylogenetic least squares models to test associations between TF motif presence and social behavior across bee species.
 
-Phylostratigraphy:
+Phylostratigraphy: codes and results of phylostratigraphy.
