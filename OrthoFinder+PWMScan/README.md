@@ -1,5 +1,4 @@
 # Snakemake workflow for running OrthoFinder and PWMScan
-
 Snakemake is used to manage this workflow and the two files in this directory control the pipeline to prepare orthogroup and transcription factor data across multiple species for downstream comparative analyses.
 
 **Config file: `config.yaml`**
@@ -19,3 +18,6 @@ File patterns use placeholders `{sample}` and `{motif}`, which are then populate
 This workflow implements these major steps in preparation for downstream analysis: 
 
 Extracts longest isoforms per gene using AGAT, translates and cleans peptides to use as inputs for OrthoFinder, runs OrthoFinder to infer orthogroups across species, generates bowtie indices, scans promoter regions for TF motifs with PWMscan and genome-specific background compositions, aligns motif tag lists to promoter regions using Bowtie, and generates motif count and score tables for each species. 
+
+# OrthoFinder outputs
+Outputs from running OrthoFinder on 42 species. `Orthogroups.txt` contains all orthogroups and `Orthogroups_SingleCopyOrthologues` contains all single copy orthologs. 
