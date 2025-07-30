@@ -6,7 +6,7 @@ This pipeline uses motif count tables from upstream workflows, species tree from
 
 **Config file: `config_PGLS.yaml`**
 
-This configuration file defines all paths used in the PGLS workflow. 
+This configuration file defines all paths and containers with tools used in the PGLS workflow. 
 
 **Snakefile: `Snakefile_PGLS`**
 
