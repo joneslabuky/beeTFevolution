@@ -1,6 +1,6 @@
 # Snakemake workflow for preprocessing
 
-Snakemake is used to manage this workflow and the two files control the pipeline to prepare orthogroup and transcription factor data across multiple species for downstream comparative analyses.
+Snakemake is used to manage this workflow and the two files in this directory control the pipeline to prepare orthogroup and transcription factor data across multiple species for downstream comparative analyses.
 
 **Config file: `config.yaml`**
 
