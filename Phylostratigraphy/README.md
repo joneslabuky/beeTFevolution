@@ -1,5 +1,4 @@
 # Phylostratigraphy
-
 To determine the approximate evolutionary age of each orthgroup used in our analyses we used the Phylostratigraphy pipline (https://github.com/AlexGa/Phylostratigraphy). We used the proteomes from a total of 56 species, including the 42 bee species in our study along with proteins from 14 species as a reference set spanning a wide diversity of animals as in Jones et al. 2023 (https://github.com/kocherlab/HalictidCompGen). All taxa and their taxonomy are provided in `taxonomy.txt`.
 
 The results of the phylostratigraphic analysis for each species are in the `phylostratigraphic analysis results/` directory. These species files contain the taxonomic level at which each gene originated represented by a number. We used 18 taxonomic levels with family as the most specific level in our analysis:
