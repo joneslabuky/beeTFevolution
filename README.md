@@ -6,3 +6,5 @@ OrthoFinder+PWMScan: pipeline for preparing orthgroup and TF motif data for down
 PGLS: pipeline and codes for running phylogenetic least squares models to test associations between TF motif presence and social behavior across bee species.
 
 Phylostratigraphy: codes and results of phylostratigraphy.
+
+Supplemetnal Tables: tables refrenced throughout paper. 
